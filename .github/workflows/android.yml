@@ -1,20 +1,24 @@
-name: Android Build APK (Stable)
+name: Android Cloud Build APK
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
+# ⭐ สำคัญมาก ไม่งั้นจะ 403 ตอนสร้าง Release
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ ดึงโค้ดจาก GitHub
+      # 1️⃣ ดึงโค้ดจาก repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ ตั้งค่า Java (Android Gradle Plugin รองรับ)
+      # 2️⃣ ตั้งค่า Java (Gradle เสถียรสุด)
       - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
@@ -22,52 +26,58 @@ jobs:
           java-version: 11
 
       # 3️⃣ ให้สิทธิ์ gradlew
-      - name: Grant execute permission
+      - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # 4️⃣ แก้ชื่อแอป + applicationId (ปลอดภัย)
-      - name: Customize App Name & Package
+      # 4️⃣ แก้ชื่อแอป + package (ถ้ามีไฟล์ .txt)
+      - name: Apply App Name and Package
         run: |
           echo "🔧 Customizing app..."
 
-          # เปลี่ยนชื่อแอป
+          # ---- App Name ----
           if [ -f app_name.txt ]; then
             APP_NAME=$(cat app_name.txt)
             echo "App name: $APP_NAME"
-            sed -i "s|<string name=\"app_name\">.*</string>|<string name=\"app_name\">$APP_NAME</string>|g" app/src/main/res/values/strings.xml
+            sed -i "s|<string name=\"app_name\">.*</string>|<string name=\"app_name\">$APP_NAME</string>|g" \
+              app/src/main/res/values/strings.xml
           fi
 
-          # เปลี่ยน applicationId เท่านั้น (ไม่ย้ายไฟล์ Java)
+          # ---- Package Name ----
           if [ -f package.txt ]; then
-            NEW_PKG=$(cat package.txt)
-            echo "ApplicationId: $NEW_PKG"
-            sed -i "s/applicationId \".*\"/applicationId \"$NEW_PKG\"/" app/build.gradle
-            sed -i "s/package=\".*\"/package=\"$NEW_PKG\"/" app/src/main/AndroidManifest.xml
+            PKG=$(cat package.txt)
+            echo "Package: $PKG"
+
+            # build.gradle
+            sed -i "s/applicationId \".*\"/applicationId \"$PKG\"/" app/build.gradle
+
+            # AndroidManifest
+            sed -i "s/package=\".*\"/package=\"$PKG\"/" app/src/main/AndroidManifest.xml
+
+            # ย้ายไฟล์ Java
+            NEW_PATH=$(echo $PKG | tr '.' '/')
+            mkdir -p app/src/main/java/$NEW_PATH
+
+            find app/src/main/java -name "*.java" -exec sed -i "s/^package .*/package $PKG;/" {} \;
+            find app/src/main/java -name "*.java" -exec mv {} app/src/main/java/$NEW_PATH/ \;
           fi
 
-      # 5️⃣ Build APK (Release)
+      # 5️⃣ Build Release APK
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
-      # 6️⃣ เตรียมไฟล์ APK
+      # 6️⃣ เตรียมไฟล์ APK (ชื่อคงที่)
       - name: Prepare APK
         run: |
-          mkdir -p output
-          find app/build/outputs/apk/release -name "*.apk" -exec cp {} output/app-release.apk \;
+          find app/build/outputs/apk/release -name "*.apk" -exec mv {} app-release.apk \;
+          ls -lh app-release.apk
 
-      # 7️⃣ อัปโหลดเป็น Artifact (เผื่อโหลดจาก Actions)
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release
-          path: output/app-release.apk
-
-      # 8️⃣ ปล่อยเข้า GitHub Releases (latest)
-      - name: Publish to GitHub Release
+      # 7️⃣ Publish ไปที่ GitHub Releases (latest)
+      - name: Publish APK to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
           name: Latest Cloud Build
-          files: output/app-release.apk
+          files: app-release.apk
+          force_update: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
