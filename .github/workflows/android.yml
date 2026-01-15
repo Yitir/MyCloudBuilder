@@ -1,52 +1,35 @@
-name: Android Cloud Build APK
+name: Android Debug Build APK
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 11
+      - name: ☕ Set up JDK 11
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 11
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
+      - name: 📦 Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      - name: 🔓 Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      - name: Prepare APK
-        run: |
-          mkdir -p output
-          find app/build/outputs/apk/release -name "*.apk" -exec cp {} output/app-release.apk \;
-          ls -lh output/app-release.apk
+      - name: 🛠 Build Debug APK
+        run: ./gradlew assembleDebug
 
-      # ✅ วิธีที่ 1 (แนะนำ): Upload เป็น Artifact
-      - name: Upload APK Artifact
+      - name: 📤 Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: output/app-release.apk
-
-      # ✅ วิธีที่ 2: Publish ไปที่ Release (ไม่มี force_update)
-      - name: Publish APK to GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: latest
-          name: Latest Cloud Build
-          files: output/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
