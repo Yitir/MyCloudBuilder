@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.pper.ide">
+    package="com.gnv.ide">
 
    <application
         android:allowBackup="true"
