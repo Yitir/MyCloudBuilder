@@ -1,4 +1,4 @@
-name: Android Debug Build APK
+name: Android APK Build
 
 on:
   push:
@@ -31,8 +31,11 @@ jobs:
       - name: 🛠 Build Debug APK
         run: ./gradlew assembleDebug
 
+      - name: 📂 List APK outputs
+        run: ls -R app/build/outputs/apk
+
       - name: 📤 Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk-${{ github.run_number }}
+          name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
